@@ -254,19 +254,24 @@ void Tasks::ReceiveFromMonTask(void *arg) {
     /**************************************************************************************/
     rt_sem_p(&sem_serverOk, TM_INFINITE);
     cout << "Received message from monitor activated" << endl << flush;
-
+    
     while (1) {
         msgRcv = monitor.Read();
         cout << "Rcv <= " << msgRcv->ToString() << endl << flush;
 
         if (msgRcv->CompareID(MESSAGE_MONITOR_LOST)) {
             Stop();
+            Init();
             delete(msgRcv);
             exit(-1);
         } else if (msgRcv->CompareID(MESSAGE_ROBOT_COM_OPEN)) {
             rt_sem_v(&sem_openComRobot);
         } else if (msgRcv->CompareID(MESSAGE_ROBOT_START_WITHOUT_WD)) {
             rt_sem_v(&sem_startRobot);
+            robot.Write(new Message(MESSAGE_ROBOT_START_WITHOUT_WD));
+        } else if (msgRcv->CompareID(MESSAGE_ROBOT_START_WITH_WD)) {
+            rt_sem_v(&sem_startRobot);
+            robot.Write(new Message(MESSAGE_ROBOT_START_WITH_WD));
         } else if (msgRcv->CompareID(MESSAGE_ROBOT_GO_FORWARD) ||
                 msgRcv->CompareID(MESSAGE_ROBOT_GO_BACKWARD) ||
                 msgRcv->CompareID(MESSAGE_ROBOT_GO_LEFT) ||
@@ -322,6 +327,8 @@ void Tasks::StartRobotTask(void *arg) {
     // Synchronization barrier (waiting that all tasks are starting)
     rt_sem_p(&sem_barrier, TM_INFINITE);
     
+    int count = 0;
+    
     /**************************************************************************************/
     /* The task startRobot starts here                                                    */
     /**************************************************************************************/
@@ -329,10 +336,22 @@ void Tasks::StartRobotTask(void *arg) {
 
         Message * msgSend;
         rt_sem_p(&sem_startRobot, TM_INFINITE);
-        cout << "Start robot without watchdog (";
-        rt_mutex_acquire(&mutex_robot, TM_INFINITE);
-        msgSend = robot.Write(robot.StartWithoutWD());
-        rt_mutex_release(&mutex_robot);
+        
+        string msg = robot.Read();
+        
+        if (msg == "u") {
+            cout << "Start robot without watchdog (";
+            rt_mutex_acquire(&mutex_robot, TM_INFINITE);
+            msgSend = robot.Write(robot.StartWithoutWD());
+            rt_mutex_release(&mutex_robot);
+        }
+        else if (msg == "W") {
+            cout << "Start robot with watchdog (";
+            rt_mutex_acquire(&mutex_robot, TM_INFINITE);
+            msgSend = robot.Write(robot.StartWithWD());
+            rt_mutex_release(&mutex_robot);
+        }
+        
         cout << msgSend->GetID();
         cout << ")" << endl;
 
@@ -343,6 +362,13 @@ void Tasks::StartRobotTask(void *arg) {
             rt_mutex_acquire(&mutex_robotStarted, TM_INFINITE);
             robotStarted = 1;
             rt_mutex_release(&mutex_robotStarted);
+            count = 0;
+        }
+        else if (count >= 2) {
+            WriteInQueue(&q_messageToMon, new Message(MESSAGE_MONITOR_LOST));
+        }
+        else {
+            count++;
         }
     }
 }
