@@ -26,6 +26,9 @@
 #define PRIORITY_TRECEIVEFROMMON 25
 #define PRIORITY_TSTARTROBOT 20
 #define PRIORITY_TCAMERA 21
+#define PRIORITY_TBATTERY 25
+#define PRIORITY_TSTARTCAMERA 20
+#define PRIORITY_TGRABCAMERA 20
 
 /*
  * Some remarks:
@@ -123,6 +126,18 @@ void Tasks::Init() {
         cerr << "Error task create: " << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
     }
+    if (err = rt_task_create(&th_battery, "th_battery", 0, PRIORITY_TBATTERY, 0)) {
+        cerr << "Error task create: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+    if (err = rt_task_create(&th_startCamera, "th_startCamera", 0, PRIORITY_TSTARTCAMERA, 0)) {
+        cerr << "Error task create: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+    if (err = rt_task_create(&th_grabCamera, "th_grabCamera", 0, PRIORITY_TGRABCAMERA, 0)) {
+        cerr << "Error task create: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
     cout << "Tasks created successfully" << endl << flush;
 
     /**************************************************************************************/
@@ -167,6 +182,18 @@ void Tasks::Run() {
         cerr << "Error task start: " << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
     }
+    if (err = rt_task_start(&th_battery, (void(*)(void*)) & Tasks::ShowBatteryTask, this)) {
+        cerr << "Error task start: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+    if (err = rt_task_start(&th_startCamera, (void(*)(void*)) & Tasks::StartCameraTask, this)) {
+        cerr << "Error task start: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+    if (err = rt_task_start(&th_grabCamera, (void(*)(void*)) & Tasks::GrabTask, this)) {
+        cerr << "Error task start: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
 
     cout << "Tasks launched" << endl << flush;
 }
@@ -177,6 +204,9 @@ void Tasks::Run() {
 void Tasks::Stop() {
     monitor.Close();
     robot.Close();
+    if (camera.IsOpen()) {
+        camera.Close() ;
+    }
 }
 
 /**
@@ -275,6 +305,8 @@ void Tasks::ReceiveFromMonTask(void *arg) {
             rt_mutex_acquire(&mutex_move, TM_INFINITE);
             move = msgRcv->GetID();
             rt_mutex_release(&mutex_move);
+        } else if (msgRcv -> CompareID(MESSAGE_CAM_OPEN)) {
+            rt_sem_v(&sem_startCamera) ;
         }
         delete(msgRcv); // mus be deleted manually, no consumer
     }
@@ -382,6 +414,91 @@ void Tasks::MoveTask(void *arg) {
         cout << endl << flush;
     }
 }
+
+void Tasks::ShowBatteryTask (void *arg) {
+    rt_task_set_periodic(NULL, TM_NOW, 500000000) ;
+    int rs ;
+    
+    while(1) {
+        rt_task_wait_period(NULL);
+        rt_mutex_acquire(&mutex_robotStarted, TM_INFINITE);
+        rs = robotStarted;
+        rt_mutex_release(&mutex_robotStarted);
+        
+        if (rs==1) {
+            cout << "Mise à jour de la batterie " << endl << flush;
+
+            rt_mutex_acquire(&mutex_robot, TM_INFINITE);
+            Message* message = robot.Write(robot.GetBattery()) ;
+            rt_mutex_release(&mutex_robot);
+
+            WriteInQueue(&q_messageToMon, message);
+            
+        }
+    }
+}
+
+
+
+void Tasks::StartCameraTask (void *arg) {
+    int rs;
+    
+    while(1) {
+        rt_sem_p(&sem_startCamera, TM_INFINITE) ;
+        
+        rt_mutex_acquire(&mutex_robotStarted, TM_INFINITE);
+        rs = robotStarted;
+        rt_mutex_release(&mutex_robotStarted);
+        
+        if (rs==1) {
+            Message* msgSend ;
+            rt_mutex_acquire(&mutex_camera, TM_INFINITE);
+            if (camera.Open()) {
+                msgSend = new Message(MESSAGE_ANSWER_ACK);
+                cameraStarted = 10;
+            } else {
+                msgSend = new Message(MESSAGE_ANSWER_NACK);
+            }
+            rt_mutex_release(&mutex_camera);
+        
+            WriteInQueue(&q_messageToMon, msgSend);
+        }
+        
+    }
+    
+   
+    
+}
+
+
+void Tasks::GrabTask (void *arg) {
+    int cs ;
+    rt_task_set_periodic(NULL, TM_NOW, 100000000);
+    
+    while(1) {
+        rt_task_wait_period(NULL);
+        rt_mutex_acquire(&mutex_cameraStarted, TM_INFINITE);
+        cs = cameraStarted;
+        rt_mutex_release(&mutex_cameraStarted);
+        
+        
+        // TODO A faire la prochaine fois 
+        if (cs == 1) {
+            Img img ;
+            rt_mutex_acquire(&mutex_camera, TM_INFINITE);
+            img = Img(camera.Grab()) ;
+            rt_mutex_release(&mutex_camera);
+            MessageImg msg = MessageImg(MESSAGE_CAM_IMAGE, &img) ;
+            
+            WriteInQueue(&q_messageToMon, &msg);
+        }
+        
+        
+        
+    }
+    
+}
+
 
 /**
  * Write a message in a given queue

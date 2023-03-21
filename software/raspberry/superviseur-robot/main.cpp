@@ -27,7 +27,8 @@
 #endif // __WITH_PTHREAD__
 
 
-// Włączenie serwera
+// Włączenie serwera ComMonitor serv = launchServer();
+/*
 ComMonitor launchServer(void) {
     ComMonitor serv =  new ComMonitor() ;
     if (serv.Open != 1) {
@@ -36,6 +37,7 @@ ComMonitor launchServer(void) {
     }
     return serv ;
 }
+  */
 
 int main(int argc, char **argv) {
     Tasks tasks;
@@ -46,7 +48,7 @@ int main(int argc, char **argv) {
     cout<<"#      DE STIJL PROJECT         #"<<endl;
     cout<<"#################################"<<endl;
 
-    ComMonitor serv = launchServer();
+//    ComMonitor serv = launchServer();
 
     tasks.Init();
     tasks.Run();
@@ -55,57 +57,57 @@ int main(int argc, char **argv) {
     //tasks.Run();
 
     // TODO: remove this or the accept in the while loop
-    cout << "Waiting for client to accept..." << endl;
-    serv.AcceptClient() ;
-    cout << "Client accepted! Ready to receive messages!" << endl;
-
-    while (true) {
-        Message *msg = serv.Read();
-        cout << "Received message : " ;
-        
-        switch (*msg) {
-        case MESSAGE_ROBOT_COM_OPEN:
-            // TODO: what do we do if we receive a com open message again?
-            cout << "Opening communication (id=" << MESSAGE_ROBOT_COM_OPEN << ")" << endl;
-            serv.AcceptClient() ;
-            serv.Write(MESSAGE_ANSWER_ACK) ;
-            break;
-        case MESSAGE_ROBOT_COM_CLOSE:
-            serv.Close();
-            serv.Write(MESSAGE_ANSWER_ACK) ;
-            break;
-        case MESSAGE_ROBOT_START_WITH_WD: case MESSAGE_ROBOT_START_WITHOUT_WD:
-            serv.Write(MESSAGE_ANSWER_ACK) ;
-            break;
-        case MESSAGE_CAM_OPEN:
-            serv.Write(MESSAGE_ANSWER_ACK) ;
-            break;
-        case MESSAGE_CAM_CLOSE:
-            serv.Write(MESSAGE_ANSWER_ACK) ;
-            break;
-        case MESSAGE_CAM_ASK_ARENA:
-            break;
-        case MESSAGE_CAM_ASK_ARENA:
-            break;
-        case MESSAGE_CAM_ARENA_CONFIRM:
-            break;
-        case MESSAGE_CAM_ARENA_INFIRM:
-            break;
-        case MESSAGE_CAM_POSITION_COMPUTE_START:
-            break;
-        case MESSAGE_CAM_POSITION_COMPUTE_STOP:
-            break;
-
-        // If timedout, ComMonitor::Read retruns a MESSAGE_MONITOR_LOST
-        case MESSAGE_MONITOR_LOST:
-        break;
-
-        default:
-            serv.Write(MESSAGE_ANSWER_NACK) ;
-            break;
-        }
+//    cout << "Waiting for client to accept..." << endl;
+//    serv.AcceptClient() ;
+//    cout << "Client accepted! Ready to receive messages!" << endl;
+//
+//    while (true) {
+//        Message *msg = serv.Read();
+//        cout << "Received message : " ;
+//        
+//        switch (*msg) {
+//        case MESSAGE_ROBOT_COM_OPEN:
+//            // TODO: what do we do if we receive a com open message again?
+//            cout << "Opening communication (id=" << MESSAGE_ROBOT_COM_OPEN << ")" << endl;
+//            serv.AcceptClient() ;
+//            serv.Write(MESSAGE_ANSWER_ACK) ;
+//            break;
+//        case MESSAGE_ROBOT_COM_CLOSE:
+//            serv.Close();
+//            serv.Write(MESSAGE_ANSWER_ACK) ;
+//            break;
+//        case MESSAGE_ROBOT_START_WITH_WD: case MESSAGE_ROBOT_START_WITHOUT_WD:
+//            serv.Write(MESSAGE_ANSWER_ACK) ;
+//            break;
+//        case MESSAGE_CAM_OPEN:
+//            serv.Write(MESSAGE_ANSWER_ACK) ;
+//            break;
+//        case MESSAGE_CAM_CLOSE:
+//            serv.Write(MESSAGE_ANSWER_ACK) ;
+//            break;
+//        case MESSAGE_CAM_ASK_ARENA:
+//            break;
+//        case MESSAGE_CAM_ASK_ARENA:
+//            break;
+//        case MESSAGE_CAM_ARENA_CONFIRM:
+//            break;
+//        case MESSAGE_CAM_ARENA_INFIRM:
+//            break;
+//        case MESSAGE_CAM_POSITION_COMPUTE_START:
+//            break;
+//        case MESSAGE_CAM_POSITION_COMPUTE_STOP:
+//            break;
+//
+//        // If timedout, ComMonitor::Read retruns a MESSAGE_MONITOR_LOST
+//        case MESSAGE_MONITOR_LOST:
+//        break;
+//
+//        default:
+//            serv.Write(MESSAGE_ANSWER_NACK) ;
+//            break;
+//        }
     
-    }
+//    }
 
     tasks.Stop();
     return 0;
