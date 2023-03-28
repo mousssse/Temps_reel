@@ -76,6 +76,14 @@ void Tasks::Init() {
         cerr << "Error mutex create: " << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
     }
+    if (err = rt_mutex_create(&mutex_camera, NULL)) {
+        cerr << "Error mutex create: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+    if (err = rt_mutex_create(&mutex_cameraStarted, NULL)) {
+        cerr << "Error mutex create: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
     cout << "Mutexes created successfully" << endl << flush;
 
     /**************************************************************************************/
@@ -94,6 +102,10 @@ void Tasks::Init() {
         exit(EXIT_FAILURE);
     }
     if (err = rt_sem_create(&sem_startRobot, NULL, 0, S_FIFO)) {
+        cerr << "Error semaphore create: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+    if (err = rt_sem_create(&sem_startCamera, NULL, 0, S_FIFO)) {
         cerr << "Error semaphore create: " << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
     }
@@ -438,8 +450,6 @@ void Tasks::ShowBatteryTask (void *arg) {
     }
 }
 
-
-
 void Tasks::StartCameraTask (void *arg) {
     int rs;
     
@@ -464,12 +474,8 @@ void Tasks::StartCameraTask (void *arg) {
             WriteInQueue(&q_messageToMon, msgSend);
         }
         
-    }
-    
-   
-    
+    }    
 }
-
 
 void Tasks::GrabTask (void *arg) {
     int cs ;
@@ -481,24 +487,19 @@ void Tasks::GrabTask (void *arg) {
         cs = cameraStarted;
         rt_mutex_release(&mutex_cameraStarted);
         
+        Img img;
         
         // TODO A faire la prochaine fois 
         if (cs == 1) {
-            Img img ;
             rt_mutex_acquire(&mutex_camera, TM_INFINITE);
-            img = Img(camera.Grab()) ;
+            img = camera.Grab() ;
             rt_mutex_release(&mutex_camera);
             MessageImg msg = MessageImg(MESSAGE_CAM_IMAGE, &img) ;
             
             WriteInQueue(&q_messageToMon, &msg);
         }
-        
-        
-        
     }
-    
 }
-
 
 /**
  * Write a message in a given queue
