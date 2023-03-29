@@ -68,6 +68,7 @@ private:
     int robotStarted = 0;
     int cameraStarted = 0;
     int move = MESSAGE_ROBOT_STOP;
+    Img* img ;
     
     /**********************************************************************/
     /* Tasks                                                              */
@@ -81,6 +82,9 @@ private:
     RT_TASK th_battery;
     RT_TASK th_startCamera ;
     RT_TASK th_grabCamera ;
+    RT_TASK th_stopCamera;
+    RT_TASK th_searchArena ;
+    
     
     /**********************************************************************/
     /* Mutex                                                              */
@@ -91,6 +95,7 @@ private:
     RT_MUTEX mutex_move;
     RT_MUTEX mutex_camera ;
     RT_MUTEX mutex_cameraStarted ;
+    RT_MUTEX mutex_img ;
 
     /**********************************************************************/
     /* Semaphores                                                         */
@@ -100,6 +105,8 @@ private:
     RT_SEM sem_serverOk;
     RT_SEM sem_startRobot;
     RT_SEM sem_startCamera ;
+    RT_SEM sem_stopCamera ;
+    RT_SEM sem_searchArena ;
 
     /**********************************************************************/
     /* Message queues                                                     */
@@ -119,7 +126,6 @@ private:
      * @brief Thread sending data to monitor.
      */
     void SendToMonTask(void *arg);
-        
     /**
      * @brief Thread receiving data from monitor.
      */
@@ -146,6 +152,10 @@ private:
     void StartCameraTask (void *arg) ;
     
     void GrabTask (void *arg) ;
+    
+    void StopCameraTask (void *arg) ;
+    
+    void SearchArenaTask (void *arg) ;
     
     /**********************************************************************/
     /* Queue services                                                     */
