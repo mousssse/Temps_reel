@@ -74,6 +74,10 @@ void Tasks::Init() {
         cerr << "Error mutex create: " << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
     }
+    if (err = rt_mutex_create(&mutex_WD, NULL)) {
+        cerr << "Error mutex create: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
     cout << "Mutexes created successfully" << endl << flush;
 
     /**************************************************************************************/
@@ -277,12 +281,14 @@ void Tasks::ReceiveFromMonTask(void *arg) {
             rt_sem_v(&sem_openComRobot);
         } else if (msgRcv->CompareID(MESSAGE_ROBOT_START_WITHOUT_WD)) {
             rt_sem_v(&sem_startRobot);
-            robot.Write(new Message(MESSAGE_ROBOT_START_WITHOUT_WD));
+            rt_mutex_acquire(&mutex_WD, TM_INFINITE);
             usingWD = 0;
+            rt_mutex_release(&mutex_WD);
         } else if (msgRcv->CompareID(MESSAGE_ROBOT_START_WITH_WD)) {
             rt_sem_v(&sem_startRobot);
-            robot.Write(new Message(MESSAGE_ROBOT_START_WITH_WD));
+            rt_mutex_acquire(&mutex_WD, TM_INFINITE);
             usingWD = 1;
+            rt_mutex_release(&mutex_WD);
         } else if (msgRcv->CompareID(MESSAGE_ROBOT_GO_FORWARD) ||
                 msgRcv->CompareID(MESSAGE_ROBOT_GO_BACKWARD) ||
                 msgRcv->CompareID(MESSAGE_ROBOT_GO_LEFT) ||
@@ -348,13 +354,17 @@ void Tasks::StartRobotTask(void *arg) {
         Message * msgSend;
         rt_sem_p(&sem_startRobot, TM_INFINITE);
         
-        if (!usingWD) {
+        rt_mutex_acquire(&mutex_WD, TM_INFINITE);
+        int watchdog = usingWD;
+        rt_mutex_release(&mutex_WD);
+        
+        if (!watchdog) {
             cout << "Start robot without watchdog (";
             rt_mutex_acquire(&mutex_robot, TM_INFINITE);
             msgSend = robot.Write(robot.StartWithoutWD());
             rt_mutex_release(&mutex_robot);
         }
-        else {
+        if (watchdog) {
             cout << "Start robot with watchdog (";
             rt_mutex_acquire(&mutex_robot, TM_INFINITE);
             msgSend = robot.Write(robot.StartWithWD());
@@ -459,9 +469,6 @@ void Tasks::ReloadWDTask(void *arg) {
     rt_mutex_acquire(&mutex_robot, TM_INFINITE);
     if (usingWD) {
         Message * msgSend = robot.Write(new Message(MESSAGE_ROBOT_RELOAD_WD));
-        cout << msgSend->GetID();
-        cout << ")" << endl;
-        cout << "Movement answer: " << msgSend->ToString() << endl << flush;
         WriteInQueue(&q_messageToMon, msgSend); 
     }
     rt_mutex_release(&mutex_robot);
