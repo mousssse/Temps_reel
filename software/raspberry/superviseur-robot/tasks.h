@@ -65,6 +65,7 @@ private:
     ComMonitor monitor;
     ComRobot robot;
     int robotStarted = 0;
+    int usingWD = 0;
     int move = MESSAGE_ROBOT_STOP;
     
     /**********************************************************************/
@@ -75,6 +76,7 @@ private:
     RT_TASK th_receiveFromMon;
     RT_TASK th_openComRobot;
     RT_TASK th_startRobot;
+    RT_TASK th_reloadWD;
     RT_TASK th_move;
     
     /**********************************************************************/
@@ -148,6 +150,11 @@ private:
      * @return Message read
      */
     Message *ReadInQueue(RT_QUEUE *queue);
+    
+    /**
+    * Regularly sends a message to the robot to reload the watchdog
+    */
+    void ReloadWDTask();
 
 };
 

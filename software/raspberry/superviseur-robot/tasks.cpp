@@ -26,6 +26,7 @@
 #define PRIORITY_TRECEIVEFROMMON 25
 #define PRIORITY_TSTARTROBOT 20
 #define PRIORITY_TCAMERA 21
+#define PRIORITY_RELOAD_WD 26
 
 /*
  * Some remarks:
@@ -119,6 +120,10 @@ void Tasks::Init() {
         cerr << "Error task create: " << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
     }
+    if (err = rt_task_create(&th_reloadWD, "th_reloadWD", 0, PRIORITY_RELOAD_WD, 0)) {
+        cerr << "Error task create: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
     if (err = rt_task_create(&th_move, "th_move", 0, PRIORITY_TMOVE, 0)) {
         cerr << "Error task create: " << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
@@ -160,6 +165,10 @@ void Tasks::Run() {
         exit(EXIT_FAILURE);
     }
     if (err = rt_task_start(&th_startRobot, (void(*)(void*)) & Tasks::StartRobotTask, this)) {
+        cerr << "Error task start: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+    if (err = rt_task_start(&th_reloadWD, (void(*)(void*)) & Tasks::ReloadWDTask, this)) {
         cerr << "Error task start: " << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
     }
@@ -349,6 +358,7 @@ void Tasks::StartRobotTask(void *arg) {
             cout << "Start robot with watchdog (";
             rt_mutex_acquire(&mutex_robot, TM_INFINITE);
             msgSend = robot.Write(robot.StartWithWD());
+            usingWD = 1;
             rt_mutex_release(&mutex_robot);
         }
         
@@ -442,3 +452,14 @@ Message *Tasks::ReadInQueue(RT_QUEUE *queue) {
     return msg;
 }
 
+/**
+ * Regularly sends a message to the robot to reload the watchdog
+ */
+void Tasks::ReloadWDTask() {
+    cout << "Start " << __PRETTY_FUNCTION__ << endl << flush;
+    rt_mutex_acquire(&mutex_robot, TM_INFINITE);
+    if (usingWD) {
+        msgSend = robot.Write(new Message(MESSAGE_ROBOT_RELOAD_WD));
+    }
+    rt_mutex_release(&mutex_robot);
+}
