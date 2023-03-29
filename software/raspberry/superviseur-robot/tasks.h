@@ -65,7 +65,7 @@ private:
     ComMonitor monitor;
     ComRobot robot;
     int robotStarted = 0;
-    int usingWD = 0;
+    int usingWD;
     int move = MESSAGE_ROBOT_STOP;
     
     /**********************************************************************/
@@ -154,7 +154,7 @@ private:
     /**
     * Regularly sends a message to the robot to reload the watchdog
     */
-    void ReloadWDTask();
+    void ReloadWDTask(void *arg);
 
 };
 

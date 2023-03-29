@@ -168,11 +168,11 @@ void Tasks::Run() {
         cerr << "Error task start: " << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
     }
-    if (err = rt_task_start(&th_reloadWD, (void(*)(void*)) & Tasks::ReloadWDTask, this)) {
+    if (err = rt_task_start(&th_move, (void(*)(void*)) & Tasks::MoveTask, this)) {
         cerr << "Error task start: " << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
     }
-    if (err = rt_task_start(&th_move, (void(*)(void*)) & Tasks::MoveTask, this)) {
+    if (err = rt_task_start(&th_reloadWD, (void(*)(void*)) & Tasks::ReloadWDTask, this)) {
         cerr << "Error task start: " << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
     }
@@ -278,9 +278,11 @@ void Tasks::ReceiveFromMonTask(void *arg) {
         } else if (msgRcv->CompareID(MESSAGE_ROBOT_START_WITHOUT_WD)) {
             rt_sem_v(&sem_startRobot);
             robot.Write(new Message(MESSAGE_ROBOT_START_WITHOUT_WD));
+            usingWD = 0;
         } else if (msgRcv->CompareID(MESSAGE_ROBOT_START_WITH_WD)) {
             rt_sem_v(&sem_startRobot);
             robot.Write(new Message(MESSAGE_ROBOT_START_WITH_WD));
+            usingWD = 1;
         } else if (msgRcv->CompareID(MESSAGE_ROBOT_GO_FORWARD) ||
                 msgRcv->CompareID(MESSAGE_ROBOT_GO_BACKWARD) ||
                 msgRcv->CompareID(MESSAGE_ROBOT_GO_LEFT) ||
@@ -346,19 +348,16 @@ void Tasks::StartRobotTask(void *arg) {
         Message * msgSend;
         rt_sem_p(&sem_startRobot, TM_INFINITE);
         
-        string msg = robot.Read();
-        
-        if (msg == "u") {
+        if (!usingWD) {
             cout << "Start robot without watchdog (";
             rt_mutex_acquire(&mutex_robot, TM_INFINITE);
             msgSend = robot.Write(robot.StartWithoutWD());
             rt_mutex_release(&mutex_robot);
         }
-        else if (msg == "W") {
+        else {
             cout << "Start robot with watchdog (";
             rt_mutex_acquire(&mutex_robot, TM_INFINITE);
             msgSend = robot.Write(robot.StartWithWD());
-            usingWD = 1;
             rt_mutex_release(&mutex_robot);
         }
         
@@ -455,11 +454,15 @@ Message *Tasks::ReadInQueue(RT_QUEUE *queue) {
 /**
  * Regularly sends a message to the robot to reload the watchdog
  */
-void Tasks::ReloadWDTask() {
+void Tasks::ReloadWDTask(void *arg) {
     cout << "Start " << __PRETTY_FUNCTION__ << endl << flush;
     rt_mutex_acquire(&mutex_robot, TM_INFINITE);
     if (usingWD) {
-        msgSend = robot.Write(new Message(MESSAGE_ROBOT_RELOAD_WD));
+        Message * msgSend = robot.Write(new Message(MESSAGE_ROBOT_RELOAD_WD));
+        cout << msgSend->GetID();
+        cout << ")" << endl;
+        cout << "Movement answer: " << msgSend->ToString() << endl << flush;
+        WriteInQueue(&q_messageToMon, msgSend); 
     }
     rt_mutex_release(&mutex_robot);
 }
