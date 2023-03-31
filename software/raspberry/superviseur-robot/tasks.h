@@ -67,8 +67,10 @@ private:
     Camera camera;
     int robotStarted = 0;
     int cameraStarted = 0;
+    int grabImage = 1;
     int move = MESSAGE_ROBOT_STOP;
     Img* img ;
+    Arena arena ;
     
     /**********************************************************************/
     /* Tasks                                                              */
@@ -96,6 +98,8 @@ private:
     RT_MUTEX mutex_camera ;
     RT_MUTEX mutex_cameraStarted ;
     RT_MUTEX mutex_img ;
+    RT_MUTEX mutex_grab;
+    RT_MUTEX mutex_arena ;
 
     /**********************************************************************/
     /* Semaphores                                                         */

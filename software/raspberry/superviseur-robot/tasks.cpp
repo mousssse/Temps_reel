@@ -90,6 +90,14 @@ void Tasks::Init() {
         cerr << "Error mutex create: " << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
     }
+    if (err = rt_mutex_create(&mutex_grab, NULL)) {
+        cerr << "Error mutex create: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+    if (err = rt_mutex_create(&mutex_arena, NULL)) {
+        cerr << "Error mutex create: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
     cout << "Mutexes created successfully" << endl << flush;
 
     /**************************************************************************************/
@@ -353,6 +361,17 @@ void Tasks::ReceiveFromMonTask(void *arg) {
             rt_sem_v(&sem_stopCamera) ;
         } else if (msgRcv -> CompareID(MESSAGE_CAM_ASK_ARENA)) {
             rt_sem_v(&sem_searchArena) ;
+        } else if (msgRcv -> CompareID(MESSAGE_CAM_ARENA_INFIRM)) {
+            rt_mutex_acquire(&mutex_arena, TM_INFINITE);
+            arena = Arena() ;
+            rt_mutex_release(&mutex_arena);
+            rt_mutex_acquire(&mutex_grab, TM_INFINITE);
+            grabImage = 1;
+            rt_mutex_release(&mutex_grab);
+        } else if (msgRcv -> CompareID(MESSAGE_CAM_ARENA_CONFIRM)) {
+            rt_mutex_acquire(&mutex_grab, TM_INFINITE);
+            grabImage = 1;
+            rt_mutex_release(&mutex_grab);
         }
         
         delete(msgRcv); // mus be deleted manually, no consumer
@@ -443,7 +462,7 @@ void Tasks::MoveTask(void *arg) {
 
     while (1) {
         rt_task_wait_period(NULL);
-        cout << "Periodic movement update";
+        //cout << "Periodic movement update";
         rt_mutex_acquire(&mutex_robotStarted, TM_INFINITE);
         rs = robotStarted;
         rt_mutex_release(&mutex_robotStarted);
@@ -452,19 +471,20 @@ void Tasks::MoveTask(void *arg) {
             cpMove = move;
             rt_mutex_release(&mutex_move);
             
-            cout << " move: " << cpMove;
+            //cout << " move: " << cpMove;
             
             rt_mutex_acquire(&mutex_robot, TM_INFINITE);
             robot.Write(new Message((MessageID)cpMove));
             rt_mutex_release(&mutex_robot);
         }
-        cout << endl << flush;
+        //cout << endl << flush;
     }
 }
 
 void Tasks::ShowBatteryTask (void *arg) {
     // Fonctionnality 13
-    rt_task_set_periodic(NULL, TM_NOW, 500000000) ;
+    // TODO NE PAS OUBLIER DE REMETTRE
+    rt_task_set_periodic(NULL, TM_NOW, 50000000000000000000) ;
     int rs ;
     
     while(1) {
@@ -519,18 +539,22 @@ void Tasks::StartCameraTask (void *arg) {
 
 void Tasks::GrabTask (void *arg) {
     // Fonctionnality 15
-    int cs ;
+    int cs, gb;
     rt_task_set_periodic(NULL, TM_NOW, 100000000);
     
     while(1) {
         rt_task_wait_period(NULL);
         rt_mutex_acquire(&mutex_camera, TM_INFINITE);
+        
         rt_mutex_acquire(&mutex_cameraStarted, TM_INFINITE);
         cs = cameraStarted;
         rt_mutex_release(&mutex_cameraStarted);
         
+        rt_mutex_acquire(&mutex_grab, TM_INFINITE);
+        gb = grabImage;
+        rt_mutex_release(&mutex_grab);
         // TODO A faire la prochaine fois 
-        if (cs == 1) {
+        if (cs == 1 && gb == 1) {
             
             rt_mutex_acquire(&mutex_img, TM_INFINITE) ;
             img = new Img(camera.Grab());
@@ -588,7 +612,7 @@ void Tasks::SearchArenaTask (void * arg) {
     
    int cs, rs ;
    while(1) {
-       rt_sem_p(&sem_searchArena, TM_INFINITE) ;
+        rt_sem_p(&sem_searchArena, TM_INFINITE) ;
         
         rt_mutex_acquire(&mutex_robotStarted, TM_INFINITE);
         rs = robotStarted;
@@ -597,25 +621,43 @@ void Tasks::SearchArenaTask (void * arg) {
         rt_mutex_acquire(&mutex_cameraStarted, TM_INFINITE);
         cs = cameraStarted;
         rt_mutex_release(&mutex_cameraStarted);
+        rt_mutex_acquire(&mutex_img, TM_INFINITE) ;
         
         if (cs==1 && rs ==1) {
-            rt_mutex_acquire(&mutex_img, TM_INFINITE) ;
-            Arena arena = img->SearchArena() ;
-            Message* msgSend ;
+            rt_mutex_acquire(&mutex_grab, TM_INFINITE);
+            grabImage = 0;
+            rt_mutex_release(&mutex_grab);
+            
+            rt_mutex_acquire(&mutex_arena, TM_INFINITE);
             if (!arena.IsEmpty()) {
-                msgSend = new Message(MESSAGE_CAM_ARENA_CONFIRM);
-                img->DrawArena(arena) ;
+                cout << "BBBBBBBBBBBBBBBBBBBH" << endl << flush ;
             }
-            else {
-                msgSend = new Message(MESSAGE_CAM_ARENA_INFIRM);
+            arena = img->SearchArena() ;
+            if (!arena.IsEmpty()) {
+                cout << "CCCCCCCCCCCCCCCCCCh" << endl << flush ;
             }
-             WriteInQueue(&q_messageToMon, msgSend);
-            
-            // TODO il faudra ajouter le choix d l'utilisateur (si il veut sauvegarder cette arène ou non
-            
-            rt_mutex_release(&mutex_img);
+            Message* msgSend ;
+            int i = 0 ;
+            while(arena.IsEmpty() && i<10 ) {
+                i++ ;
+                msgSend = new Message(MESSAGE_ANSWER_NACK);
+                WriteInQueue(&q_messageToMon, msgSend);
+                cout << "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" <<endl << flush ;
+                img = new Img(camera.Grab());
+                MessageImg* msg = new MessageImg(MESSAGE_CAM_IMAGE, img) ;
+                cout << "Image sent!" << endl << flush;
+                WriteInQueue(&q_messageToMon, msg);
+                arena = img->SearchArena() ;
+            }
+            img->DrawArena(arena) ;
+            MessageImg* msg = new MessageImg(MESSAGE_CAM_IMAGE, img) ;
+            WriteInQueue(&q_messageToMon, msg);
+            rt_mutex_release(&mutex_arena);
+            cout << "Arena draw" <<endl << flush ;
+
             
         }
+        rt_mutex_release(&mutex_img);
        
        
        
