@@ -484,7 +484,7 @@ void Tasks::MoveTask(void *arg) {
 void Tasks::ShowBatteryTask (void *arg) {
     // Fonctionnality 13
     // TODO NE PAS OUBLIER DE REMETTRE
-    rt_task_set_periodic(NULL, TM_NOW, 50000000000000000000) ;
+    rt_task_set_periodic(NULL, TM_NOW, 500000000) ;
     int rs ;
     
     while(1) {
@@ -494,7 +494,7 @@ void Tasks::ShowBatteryTask (void *arg) {
         rt_mutex_release(&mutex_robotStarted);
         
         if (rs==1) {
-            cout << "Mise à jour de la batterie " << endl << flush;
+            //cout << "Mise à jour de la batterie " << endl << flush;
 
             rt_mutex_acquire(&mutex_robot, TM_INFINITE);
             Message* message = robot.Write(robot.GetBattery()) ;
@@ -558,7 +558,11 @@ void Tasks::GrabTask (void *arg) {
             
             rt_mutex_acquire(&mutex_img, TM_INFINITE) ;
             img = new Img(camera.Grab());
+            if (!arena.IsEmpty()) {
+                img->DrawArena(arena) ;
+            }
             rt_mutex_release(&mutex_img);
+            
             MessageImg* msg = new MessageImg(MESSAGE_CAM_IMAGE, img) ;
             cout << "Image sent!" << endl << flush;
             
@@ -629,20 +633,20 @@ void Tasks::SearchArenaTask (void * arg) {
             rt_mutex_release(&mutex_grab);
             
             rt_mutex_acquire(&mutex_arena, TM_INFINITE);
-            if (!arena.IsEmpty()) {
-                cout << "BBBBBBBBBBBBBBBBBBBH" << endl << flush ;
-            }
+           // if (!arena.IsEmpty()) {
+           //     cout << "BBBBBBBBBBBBBBBBBBBH" << endl << flush ;
+            //}
             arena = img->SearchArena() ;
-            if (!arena.IsEmpty()) {
-                cout << "CCCCCCCCCCCCCCCCCCh" << endl << flush ;
-            }
+           // if (!arena.IsEmpty()) {
+           //     cout << "CCCCCCCCCCCCCCCCCCh" << endl << flush ;
+            //}
             Message* msgSend ;
             int i = 0 ;
             while(arena.IsEmpty() && i<10 ) {
                 i++ ;
                 msgSend = new Message(MESSAGE_ANSWER_NACK);
                 WriteInQueue(&q_messageToMon, msgSend);
-                cout << "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" <<endl << flush ;
+               // cout << "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" <<endl << flush ;
                 img = new Img(camera.Grab());
                 MessageImg* msg = new MessageImg(MESSAGE_CAM_IMAGE, img) ;
                 cout << "Image sent!" << endl << flush;
