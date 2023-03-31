@@ -71,6 +71,7 @@ private:
     int move = MESSAGE_ROBOT_STOP;
     Img* img ;
     Arena arena ;
+    int robotPosition = 0 ;
     
     /**********************************************************************/
     /* Tasks                                                              */
@@ -86,6 +87,7 @@ private:
     RT_TASK th_grabCamera ;
     RT_TASK th_stopCamera;
     RT_TASK th_searchArena ;
+    RT_TASK th_searchRobot ;
     
     
     /**********************************************************************/
@@ -100,6 +102,7 @@ private:
     RT_MUTEX mutex_img ;
     RT_MUTEX mutex_grab;
     RT_MUTEX mutex_arena ;
+    RT_MUTEX mutex_robotPosition ;
 
     /**********************************************************************/
     /* Semaphores                                                         */
@@ -160,6 +163,8 @@ private:
     void StopCameraTask (void *arg) ;
     
     void SearchArenaTask (void *arg) ;
+    
+    void SearchRobotTask (void *arg) ;
     
     /**********************************************************************/
     /* Queue services                                                     */

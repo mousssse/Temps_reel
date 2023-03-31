@@ -31,6 +31,7 @@
 #define PRIORITY_TGRABCAMERA 20
 #define PRIORITY_TSTOPCAMERA 20
 #define PRIORITY_TSEARCHARENA 22
+#define PRIORITY_TSEARCHROBOT 22
 
 /*
  * Some remarks:
@@ -95,6 +96,10 @@ void Tasks::Init() {
         exit(EXIT_FAILURE);
     }
     if (err = rt_mutex_create(&mutex_arena, NULL)) {
+        cerr << "Error mutex create: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+    if (err = rt_mutex_create(&mutex_robotPosition, NULL)) {
         cerr << "Error mutex create: " << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
     }
@@ -180,6 +185,10 @@ void Tasks::Init() {
         cerr << "Error task create: " << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
     }
+    if (err = rt_task_create(&th_searchRobot, "th_searchRobot", 0, PRIORITY_TSEARCHROBOT, 0)) {
+        cerr << "Error task create: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
     cout << "Tasks created successfully" << endl << flush;
 
     /**************************************************************************************/
@@ -241,6 +250,10 @@ void Tasks::Run() {
         exit(EXIT_FAILURE);
     }
     if (err = rt_task_start(&th_searchArena, (void(*)(void*)) & Tasks::SearchArenaTask, this)) {
+        cerr << "Error task start: " << strerror(-err) << endl << flush;
+        exit(EXIT_FAILURE);
+    }
+    if (err = rt_task_start(&th_searchRobot, (void(*)(void*)) & Tasks::SearchRobotTask, this)) {
         cerr << "Error task start: " << strerror(-err) << endl << flush;
         exit(EXIT_FAILURE);
     }
@@ -372,6 +385,15 @@ void Tasks::ReceiveFromMonTask(void *arg) {
             rt_mutex_acquire(&mutex_grab, TM_INFINITE);
             grabImage = 1;
             rt_mutex_release(&mutex_grab);
+        } else if (msgRcv -> CompareID(MESSAGE_CAM_POSITION_COMPUTE_START)) {
+            rt_mutex_acquire(&mutex_robotPosition, TM_INFINITE);
+            robotPosition = 1;
+            rt_mutex_release(&mutex_robotPosition);
+        }
+        else if (msgRcv -> CompareID(MESSAGE_CAM_POSITION_COMPUTE_STOP)) {
+            rt_mutex_acquire(&mutex_robotPosition, TM_INFINITE);
+            robotPosition = 1;
+            rt_mutex_release(&mutex_robotPosition);
         }
         
         delete(msgRcv); // mus be deleted manually, no consumer
@@ -661,16 +683,46 @@ void Tasks::SearchArenaTask (void * arg) {
 
             
         }
+        rt_mutex_release(&mutex_img);   
+   }
+}
+
+
+
+void Tasks::SearchRobotTask( void * arg) {
+    int cs, rs, rp ;
+    rt_task_set_periodic(NULL, TM_NOW, 100000000) ;
+   while(1) {
+        rt_task_wait_period(NULL);
+        rt_mutex_acquire(&mutex_robotPosition, TM_INFINITE);
+        rp= robotPosition;
+        rt_mutex_release(&mutex_robotPosition);
+        rt_mutex_acquire(&mutex_robotStarted, TM_INFINITE);
+        rs = robotStarted;
+        rt_mutex_release(&mutex_robotStarted);
+        
+        rt_mutex_acquire(&mutex_cameraStarted, TM_INFINITE);
+        cs = cameraStarted;
+        rt_mutex_release(&mutex_cameraStarted);
+        
+        
+        rt_mutex_acquire(&mutex_img, TM_INFINITE) ;
+        if (cs == 1 && rs == 1 && rp==1) {
+            rt_mutex_acquire(&mutex_arena, TM_INFINITE);
+            std::list<Position> position = img->SearchRobot(arena) ;
+            rt_mutex_release(&mutex_arena);
+            img->DrawRobot(position.front()) ;
+            
+            MessageImg* msg = new MessageImg(MESSAGE_CAM_IMAGE, img) ;
+            WriteInQueue(&q_messageToMon, msg);
+                       
+        } 
         rt_mutex_release(&mutex_img);
-       
-       
-       
    }
     
     
     
 }
-
 
 /**
  * Write a message in a given queue
