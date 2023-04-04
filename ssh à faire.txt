@@ -1,1 +1,0 @@
-.netbeans/remote/10.105.1.9/insa-11283-Linux-x86_64/home/lemmers/Bureau/4-IR/Temps__reel/Temps_reel/software/raspberry/superviseur-robot/dist/Debug__RPI_/GNU-Linux $ 
