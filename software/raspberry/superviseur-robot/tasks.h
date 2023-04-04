@@ -68,6 +68,8 @@ private:
     int robotStarted = 0;
     int cameraStarted = 0;
     int grabImage = 1;
+    int usingWD;
+    int robotErrorCount;
     int move = MESSAGE_ROBOT_STOP;
     Img* img ;
     Arena arena ;
@@ -82,6 +84,7 @@ private:
     RT_TASK th_receiveFromMon;
     RT_TASK th_openComRobot;
     RT_TASK th_startRobot;
+    RT_TASK th_reloadWD;
     RT_TASK th_move;
     RT_TASK th_battery;
     RT_TASK th_startCamera ;
@@ -104,6 +107,7 @@ private:
     RT_MUTEX mutex_grab;
     RT_MUTEX mutex_arena ;
     RT_MUTEX mutex_robotPosition ;
+    RT_MUTEX mutex_WD;
 
     /**********************************************************************/
     /* Semaphores                                                         */
@@ -149,6 +153,8 @@ private:
      */
     void StartRobotTask(void *arg);
     
+    void updateRobotErrorCount(Message * msgSend);
+    
     /**
      * @brief Thread handling control of the robot.
      */
@@ -183,6 +189,11 @@ private:
      * @return Message read
      */
     Message *ReadInQueue(RT_QUEUE *queue);
+    
+    /**
+    * Regularly sends a message to the robot to reload the watchdog
+    */
+    void ReloadWDTask(void *arg);
 
 };
 
