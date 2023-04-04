@@ -66,6 +66,7 @@ private:
     ComRobot robot;
     int robotStarted = 0;
     int usingWD;
+    int robotErrorCount;
     int move = MESSAGE_ROBOT_STOP;
     
     /**********************************************************************/
@@ -129,6 +130,8 @@ private:
      * @brief Thread starting the communication with the robot.
      */
     void StartRobotTask(void *arg);
+    
+    void updateRobotErrorCount(Message * msgSend);
     
     /**
      * @brief Thread handling control of the robot.
