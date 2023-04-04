@@ -64,10 +64,17 @@ private:
     /**********************************************************************/
     ComMonitor monitor;
     ComRobot robot;
+    Camera camera;
     int robotStarted = 0;
+    int cameraStarted = 0;
+    int grabImage = 1;
     int usingWD;
     int robotErrorCount;
     int move = MESSAGE_ROBOT_STOP;
+    Img* img ;
+    Arena arena ;
+    int robotPosition = 0 ;
+    std::list<Position> position ;
     
     /**********************************************************************/
     /* Tasks                                                              */
@@ -79,6 +86,13 @@ private:
     RT_TASK th_startRobot;
     RT_TASK th_reloadWD;
     RT_TASK th_move;
+    RT_TASK th_battery;
+    RT_TASK th_startCamera ;
+    RT_TASK th_grabCamera ;
+    RT_TASK th_stopCamera;
+    RT_TASK th_searchArena ;
+    RT_TASK th_searchRobot ;
+    
     
     /**********************************************************************/
     /* Mutex                                                              */
@@ -87,6 +101,12 @@ private:
     RT_MUTEX mutex_robot;
     RT_MUTEX mutex_robotStarted;
     RT_MUTEX mutex_move;
+    RT_MUTEX mutex_camera ;
+    RT_MUTEX mutex_cameraStarted ;
+    RT_MUTEX mutex_img ;
+    RT_MUTEX mutex_grab;
+    RT_MUTEX mutex_arena ;
+    RT_MUTEX mutex_robotPosition ;
     RT_MUTEX mutex_WD;
 
     /**********************************************************************/
@@ -96,6 +116,9 @@ private:
     RT_SEM sem_openComRobot;
     RT_SEM sem_serverOk;
     RT_SEM sem_startRobot;
+    RT_SEM sem_startCamera ;
+    RT_SEM sem_stopCamera ;
+    RT_SEM sem_searchArena ;
 
     /**********************************************************************/
     /* Message queues                                                     */
@@ -115,7 +138,6 @@ private:
      * @brief Thread sending data to monitor.
      */
     void SendToMonTask(void *arg);
-        
     /**
      * @brief Thread receiving data from monitor.
      */
@@ -137,6 +159,19 @@ private:
      * @brief Thread handling control of the robot.
      */
     void MoveTask(void *arg);
+    
+    
+    void ShowBatteryTask (void *arg) ;
+    
+    void StartCameraTask (void *arg) ;
+    
+    void GrabTask (void *arg) ;
+    
+    void StopCameraTask (void *arg) ;
+    
+    void SearchArenaTask (void *arg) ;
+    
+    void SearchRobotTask (void *arg) ;
     
     /**********************************************************************/
     /* Queue services                                                     */
