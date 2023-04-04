@@ -72,6 +72,7 @@ private:
     Img* img ;
     Arena arena ;
     int robotPosition = 0 ;
+    std::list<Position> position ;
     
     /**********************************************************************/
     /* Tasks                                                              */
